@@ -14,6 +14,7 @@ fn main() {
     // Use the `cc` crate to build a C file and statically link it.
     cc::Build::new()
         .cpp(true)
+        .define("DT_POLYREF64", "1")
         .file("src/DetourAlloc.cpp")
         .file("src/DetourAssert.cpp")
         .file("src/DetourCommon.cpp")
@@ -22,6 +23,5 @@ fn main() {
         .file("src/DetourNavMeshQuery.cpp")
         .file("src/DetourNode.cpp")
         .file("src/extern.cpp")
-        .define("DT_POLYREF64", Some("1"))
         .compile("detour");
 }

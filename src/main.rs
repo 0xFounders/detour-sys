@@ -6,14 +6,11 @@ use std::{
 };
 
 type DtTileRef = u64;
-
-#[repr(u32)]
-#[derive(Debug)]
-pub enum DtStatus {
-    Failure = 1u32 << 31,
-    Success = 1u32 << 30,
-    InProgress = 1u32 << 29,
-}
+type DtPolyRef = u64;
+type DtStatus = u32;
+type DtNavMesh = c_void;
+type DtNavMeshQuery = c_void;
+type DtQueryFilter = c_void;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -72,85 +69,147 @@ pub struct DtMeshHeader {
     bv_quant_factor: f32,
 }
 
-impl DtMeshHeader {
+#[repr(C)]
+#[derive(Debug)]
+pub struct MmapTileHeader {
+    magic: u32,
+    dt_version: u32,
+    mmap_version: u32,
+    size: u32,
+    use_liquids: u32,
+}
+
+impl MmapTileHeader {
     fn from_reader(mut rdr: impl Read) -> io::Result<Self> {
-        let magic = rdr.read_i32::<LittleEndian>()?;
-        let version = rdr.read_i32::<LittleEndian>()?;
-        let x = rdr.read_i32::<LittleEndian>()?;
-        let y = rdr.read_i32::<LittleEndian>()?;
-        let layer = rdr.read_i32::<LittleEndian>()?;
-        let user_id = rdr.read_u32::<LittleEndian>()?;
-        let poly_count = rdr.read_i32::<LittleEndian>()?;
-        let vert_count = rdr.read_i32::<LittleEndian>()?;
-        let max_link_count = rdr.read_i32::<LittleEndian>()?;
-        let detail_mesh_count = rdr.read_i32::<LittleEndian>()?;
-        let detail_vert_count = rdr.read_i32::<LittleEndian>()?;
-        let detail_tri_count = rdr.read_i32::<LittleEndian>()?;
-        let bv_node_count = rdr.read_i32::<LittleEndian>()?;
-        let off_mesh_con_count = rdr.read_i32::<LittleEndian>()?;
-        let off_mesh_base = rdr.read_i32::<LittleEndian>()?;
+        let magic = rdr.read_u32::<LittleEndian>()?;
+        let dt_version = rdr.read_u32::<LittleEndian>()?;
+        let mmap_version = rdr.read_u32::<LittleEndian>()?;
 
-        let walkable_height = rdr.read_f32::<LittleEndian>()?;
-        let walkable_climb = rdr.read_f32::<LittleEndian>()?;
+        let size = rdr.read_u32::<LittleEndian>()?;
+        let use_liquids = rdr.read_u32::<LittleEndian>()?;
 
-        let b_min_x = rdr.read_f32::<LittleEndian>()?;
-        let b_min_y = rdr.read_f32::<LittleEndian>()?;
-        let b_min_z = rdr.read_f32::<LittleEndian>()?;
-
-        let b_max_x = rdr.read_f32::<LittleEndian>()?;
-        let b_max_y = rdr.read_f32::<LittleEndian>()?;
-        let b_max_z = rdr.read_f32::<LittleEndian>()?;
-
-        let bv_quant_factor = rdr.read_f32::<LittleEndian>()?;
-
-        Ok(DtMeshHeader {
+        Ok(MmapTileHeader {
             magic,
-            version,
-            x,
-            y,
-            layer,
-            user_id,
-            poly_count,
-            vert_count,
-            max_link_count,
-            detail_mesh_count,
-            detail_vert_count,
-            detail_tri_count,
-            bv_node_count,
-            off_mesh_con_count,
-            off_mesh_base,
-            walkable_height,
-            walkable_climb,
-            b_min: [b_min_x, b_min_y, b_min_z],
-            b_max: [b_max_x, b_max_y, b_max_z],
-            bv_quant_factor,
+            dt_version,
+            mmap_version,
+            size,
+            use_liquids,
         })
     }
 }
 
 #[link(name = "detour", kind = "static")]
 extern "C" {
-    pub fn dtNavMesh_alloc() -> *mut c_void;
-    pub fn dtNavMesh_init(dtNavMesh: *mut c_void, params: *const DtNavMeshParams) -> DtStatus;
-    pub fn dtNavMesh_getMaxTiles(dtNavMesh: *mut c_void) -> i32;
+    pub fn dtNavMesh_alloc() -> *mut DtNavMesh;
+    pub fn dtNavMesh_init(_self: *mut DtNavMesh, params: *const DtNavMeshParams) -> DtStatus;
+    pub fn dtNavMesh_initSingle(
+        _self: *mut DtNavMesh,
+        data: *mut u8,
+        dataSize: i32,
+        flags: i32,
+    ) -> DtStatus;
     pub fn dtNavMesh_addTile(
-        dtNavMesh: *mut c_void,
+        _self: *mut DtNavMesh,
         data: *mut u8,
         dataSize: i32,
         flags: i32,
         lastRef: DtTileRef,
         result: *mut DtTileRef,
     ) -> DtStatus;
+
+    pub fn dtQueryFilter_alloc() -> *mut DtQueryFilter;
+    pub fn dtQueryFilter_setIncludeFlags(_self: *mut DtQueryFilter, include_flags: u16);
+    pub fn dtQueryFilter_getIncludeFlags(_self: *mut DtQueryFilter) -> u16;
+    pub fn dtQueryFilter_setExcludeFlags(_self: *mut DtQueryFilter, exclude_flags: u16);
+
+    pub fn dtNavMeshQuery_alloc() -> *mut DtNavMeshQuery;
+    pub fn dtNavMeshQuery_init(
+        _self: *mut DtNavMeshQuery,
+        dtNavMesh: *mut DtNavMesh,
+        max_nodes: i32,
+    ) -> DtStatus;
+    pub fn dtNavMeshQuery_findNearestPoly(
+        _self: *mut DtNavMeshQuery,
+        center: *const f32,
+        extents: *const f32,
+        filter: *const DtQueryFilter,
+        nearestRef: *mut DtPolyRef,
+        nearestPt: *mut f32,
+    ) -> DtStatus;
 }
 
-fn main() {
-    println!("Test");
+fn add_tile(nav_mesh: *mut DtNavMesh, file_name: &str) -> DtStatus {
+    println!("Loading {:#?}", file_name);
+    let mut tile_file = File::open(file_name).unwrap();
+    let mmap_header = MmapTileHeader::from_reader(&mut tile_file).unwrap();
+    println!("{:#?}", mmap_header);
+
+    let mut vec_buffer = Vec::with_capacity(mmap_header.size.try_into().unwrap());
+    tile_file.read_to_end(&mut vec_buffer).unwrap();
+
+    let buffer = unsafe { libc::malloc(mmap_header.size.try_into().unwrap()) as *mut u8 };
+    unsafe {
+        std::ptr::copy_nonoverlapping(vec_buffer.as_ptr(), buffer, vec_buffer.len());
+        let tile_ref = 0u64;
+        dtNavMesh_addTile(
+            nav_mesh,
+            buffer,
+            mmap_header.size.try_into().unwrap(),
+            1,
+            0,
+            &tile_ref as *const _ as *mut u64,
+        )
+    }
+}
+
+fn main() -> io::Result<()> {
     let nav_mesh = unsafe { dtNavMesh_alloc() };
+    let map_params_file = File::open("./mmaps/530.mmap")?;
+    let params = DtNavMeshParams::from_reader(map_params_file)?;
+    println!("Params: {:#?}", params);
 
-    let map_params_file = File::open("530.mmap").unwrap();
-    let params = DtNavMeshParams::from_reader(map_params_file).unwrap();
-    println!("{:#?}", params);
+    let navmesh_init_status =
+        unsafe { dtNavMesh_init(nav_mesh, &params as *const DtNavMeshParams) };
+    println!("Nav Mesh Init: {:?}", navmesh_init_status);
 
-    let status = unsafe { dtNavMesh_init(nav_mesh, &params) };
-    println!("{:#?}", status);
+    let nav_mesh_query = unsafe { dtNavMeshQuery_alloc() };
+    let nav_mesh_query_status = unsafe { dtNavMeshQuery_init(nav_mesh_query, nav_mesh, 1024) };
+    println!("Nav Mesh Query Status: {:?}", nav_mesh_query_status);
+
+    //let tiles = ["1543"];
+    let tiles = ["1543", "3418", "3518"];
+    for tile in tiles {
+        let load_status = add_tile(nav_mesh, &["./mmaps/530", tile, ".mmtile"].join(""));
+        println!("Load Result: {:?}", load_status);
+    }
+
+    let filter = unsafe { dtQueryFilter_alloc() };
+    let include_flags: u16 = 1 | 8 | 4 | 2;
+    let exclude_flags: u16 = 0;
+
+    unsafe {
+        dtQueryFilter_setIncludeFlags(filter, include_flags);
+        dtQueryFilter_setExcludeFlags(filter, exclude_flags);
+
+        let raw_start = [8850.49, -6091.11, -1.52];
+        let start = [raw_start[1], raw_start[2], raw_start[0]];
+        let extents = [3.0f32, 5.0f32, 3.0f32];
+        let mut closest_point = [0f32, 0f32, 0f32];
+
+        let nearest_ref: DtPolyRef = 0;
+        let nearest_status = dtNavMeshQuery_findNearestPoly(
+            nav_mesh_query,
+            start.as_ptr(),
+            extents.as_ptr(),
+            filter as *const _ as *const DtQueryFilter,
+            &nearest_ref as *const _ as *mut u64,
+            closest_point.as_mut_ptr(),
+        );
+
+        println!("Nearest Status: {:?}", nearest_status);
+        println!("Nearest Ref: {:?}", nearest_ref);
+        println!("Closest Point: {:#?}", closest_point);
+    }
+
+    Ok(())
 }
