@@ -27,7 +27,6 @@
 #include "DetourAssert.h"
 #include <new>
 
-#include <iostream>
 /// @class dtQueryFilter
 ///
 /// <b>The Default Implementation</b>
@@ -646,7 +645,6 @@ public:
 
 	void process(const dtMeshTile *tile, dtPoly **polys, dtPolyRef *refs, int count)
 	{
-		std::cout << "Began processing\n";
 		dtIgnoreUnused(polys);
 
 		for (int i = 0; i < count; ++i)
@@ -925,7 +923,6 @@ dtStatus dtNavMeshQuery::queryPolygons(const float *center, const float *halfExt
 			!halfExtents || !dtVisfinite(halfExtents) ||
 			!filter || !query)
 	{
-		std::cout << "failure due to invalid params\n";
 		return DT_FAILURE | DT_INVALID_PARAM;
 	}
 
