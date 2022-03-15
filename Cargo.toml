@@ -2,6 +2,10 @@
 name = "detour-sys"
 version = "0.1.0"
 edition = "2021"
+description = "ffi bindings to recast navigation"
+homepage = "https://github.com/0xFounders/detour-sys"
+repository = "https://github.com/0xFounders/detour-sys"
+license = "Zlib"
 
 [lib]
 crate-type = ["lib"]
