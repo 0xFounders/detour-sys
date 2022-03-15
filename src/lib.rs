@@ -2,77 +2,49 @@ use bitflags::bitflags;
 use std::{ffi::c_void, fmt};
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct DtVector(pub [f32; 3]);
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DtVector {
+    pub y: f32,
+    pub z: f32,
+    pub x: f32,
+}
 
 impl DtVector {
-    pub fn zero() -> Self {
-        Self([0.0, 0.0, 0.0])
-    }
-
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self([y, z, x])
+        Self { x, y, z }
     }
 
     pub fn from_yzx(y: f32, z: f32, x: f32) -> Self {
         Self::from_xyz(x, y, z)
     }
 
-    pub fn x(&self) -> f32 {
-        self.0[2]
-    }
-
-    pub fn set_x(&mut self, x: f32) {
-        self.0[2] = x;
-    }
-
-    pub fn y(&self) -> f32 {
-        self.0[0]
-    }
-
-    pub fn set_y(&mut self, y: f32) {
-        self.0[0] = y;
-    }
-
-    pub fn z(&self) -> f32 {
-        self.0[1]
-    }
-
-    pub fn set_z(&mut self, z: f32) {
-        self.0[1] = z;
-    }
-
     pub fn in_range(&self, destination: &DtVector, radius: f32, height: f32) -> bool {
-        let dx = destination.y() - self.y();
-        let dy = destination.z() - self.z();
-        let dz = destination.x() - self.x();
+        let dx = destination.y - self.y;
+        let dy = destination.z - self.z;
+        let dz = destination.x - self.x;
         (dx * dx + dz * dz) < radius * radius && dy.abs() < height
     }
 
     pub fn dot_product(&self, other: &Self) -> f32 {
-        self.x() * other.x() + self.y() * other.y() + self.z() * other.z()
+        self.x * other.x + self.y * other.y + self.z * other.z
     }
 
     pub fn scaled_add(&self, other: &Self, scalar: f32) -> DtVector {
         DtVector::from_xyz(
-            self.x() + (other.x() * scalar),
-            self.y() + (other.y() * scalar),
-            self.z() + (other.z() * scalar),
+            self.x + (other.x * scalar),
+            self.y + (other.y * scalar),
+            self.z + (other.z * scalar),
         )
     }
 
     pub fn subtract(&self, other: &Self) -> DtVector {
-        DtVector::from_xyz(
-            self.x() - other.x(),
-            self.y() - other.y(),
-            self.z() - other.z(),
-        )
+        DtVector::from_xyz(self.x - other.x, self.y - other.y, self.z - other.z)
     }
 }
 
 impl fmt::Display for DtVector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DtVector({}, {}, {})", self.y(), self.z(), self.x())
+        write!(f, "DtVector({}, {}, {})", self.y, self.z, self.x)
     }
 }
 
@@ -86,14 +58,8 @@ pub struct DtNavMeshQuery(pub c_void);
 pub struct DtQueryFilter(pub c_void);
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DtTileRef(pub u64);
-
-impl DtTileRef {
-    pub fn none() -> Self {
-        Self(0)
-    }
-}
 
 impl fmt::Display for DtTileRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -102,14 +68,8 @@ impl fmt::Display for DtTileRef {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DtPolyRef(pub u64);
-
-impl DtPolyRef {
-    pub fn none() -> Self {
-        Self(0)
-    }
-}
 
 impl fmt::Display for DtPolyRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
